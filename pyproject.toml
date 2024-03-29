@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "url-retrieval"
+version = "0.1.0"
+description = "A streamlit app to generate persist chroma DB locally"
+authors = ["Siddhesh Agarwal <siddhesh.agarwal@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.31.0"
+bs4 = "^0.0.2"
+langchain = "^0.1.13"
+langchain-openai = "^0.1.1"
+streamlit = "^1.32.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
