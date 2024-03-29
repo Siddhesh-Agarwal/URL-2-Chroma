@@ -5,9 +5,14 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores.chroma import Chroma
 from langchain_core.documents import Document
 from langchain_openai.embeddings import OpenAIEmbeddings
+from pydantic.v1 import SecretStr
 
 
-def add_to_chroma_db(url: str, recursive: bool, visited: list[str] = []) -> None:
+def add_to_chroma_db(
+    url: str,
+    recursive: bool = False,
+    visited: list[str] = [],
+) -> None:
     """
     add_to_chroma_db scraps the url and adds the data to the chroma db
 
@@ -16,7 +21,7 @@ def add_to_chroma_db(url: str, recursive: bool, visited: list[str] = []) -> None
     url : str
         The url to add
     recursive : bool
-        Whether to add the url to the chroma db recursively
+        Whether to add the url to the chroma db recursively, by default False
     visited : list[str], optional
         The visited urls, by default []
     """
@@ -39,15 +44,12 @@ def add_to_chroma_db(url: str, recursive: bool, visited: list[str] = []) -> None
     if isinstance(res, Tag):
         metadata["description"] = res.attrs["content"]
 
-    # get text as documents, use RecursiveCharacterTextSplitter to split into chunks
-    text_docs = [
-        Document(
-            page_content=soup.text.strip().replace("\n", " "),
-            metadata=metadata,
-        )
-    ]
+    # get text from page.
+    text = soup.text.strip().replace("\n", " ")
+    # add it to a document
+    text_docs = [Document(page_content=text, metadata=metadata)]
+    # use RecursiveCharacterTextSplitter to split into chunks
     text_docs = text_splitter.split_documents(text_docs)
-
     # add to chroma db
     client.add_documents(text_docs)
 
@@ -61,18 +63,24 @@ def add_to_chroma_db(url: str, recursive: bool, visited: list[str] = []) -> None
 st.title("URL-2-Chroma")
 
 # inputs
-url = st.text_input(
-    "URL",
-    value="https://example.com",
+start_url = st.text_input(
+    label="URL",
     help="The URL to add to the chroma db",
+    placeholder="https://example.com",
 )
-colletion_name = st.text_input("Collection Name", value="default")
+colletion_name = st.text_input(
+    label="Collection Name",
+    value="my_collection",
+    help="The name of the collection in the chroma db",
+    placeholder="my_collection",
+)
 openai_key = st.text_input(
-    "OpenAI API Key (leave blank to use env var)",
+    label="OpenAI API Key",
     type="password",
     help="Get an API key from https://platform.openai.com/account/api-keys",
+    placeholder="sk-...",
 )
-recursive = st.checkbox("Recursive", value=False)
+recursive = st.checkbox("Parse recursively", value=False)
 
 # fixed seperators
 SEPERATORS = ["", " ", ".", "?", "!", ",", ";", "\r", "\t", "\n", "\n\n"]
@@ -85,23 +93,25 @@ text_splitter = RecursiveCharacterTextSplitter(
 )
 
 if st.button("Generate Chroma Collection"):
-    if not url:
-        st.error("URL is required")
-    elif not openai_key and not st.secrets["OPENAI_API_KEY"]:
-        st.error("OpenAI API key is required")
+    if not start_url:
+        st.error("URL is required", icon="🔗")
     elif not colletion_name:
-        st.error("Collection name is required")
+        st.error("Collection name is required", icon="🛍️")
+    elif not openai_key:
+        st.error("OpenAI API key is required", icon="🔑")
     else:
+        embedding_function = OpenAIEmbeddings(
+            model="text-embedding-3-large",
+            dimensions=1024,
+            show_progress_bar=True,
+            api_key=SecretStr(openai_key),
+        )
         client = Chroma(
             collection_name=colletion_name,
             persist_directory="./chroma_db",
-            embedding_function=OpenAIEmbeddings(
-                model="text-embedding-3-large",
-                dimensions=1024,
-                show_progress_bar=True,
-            ),
+            embedding_function=embedding_function,
         )
         with st.spinner("Adding to chroma db..."):
-            add_to_chroma_db(url, recursive)
+            add_to_chroma_db(start_url, recursive)
         st.success("Added to chroma db", icon="✅")
         st.balloons()

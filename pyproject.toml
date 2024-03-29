@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "url-retrieval"
+name = "url-2-chroma"
 version = "0.1.0"
 description = "A streamlit app to generate persist chroma DB locally"
 authors = ["Siddhesh Agarwal <siddhesh.agarwal@gmail.com>"]
