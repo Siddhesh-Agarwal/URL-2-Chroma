@@ -1,10 +1,10 @@
 # URL-2-Chroma
 
-![Screenshot](https://github.com/Siddhesh-Agarwal/URL-2-Chroma/assets/68057995/9d142064-cfb1-4ab5-8ace-65767328e41d)
-
+![Screenshot](https://github.com/Siddhesh-Agarwal/URL-2-Chroma/assets/68057995/525f4d1d-dc51-4040-a918-d700450e565c)
 > creates a `chroma_db` folder in the same path
 
 ## Setup
+
 
 1. Clone the folder
 
