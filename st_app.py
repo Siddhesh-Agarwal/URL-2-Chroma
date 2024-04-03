@@ -1,3 +1,5 @@
+import json
+
 import streamlit as st
 from bs4 import BeautifulSoup
 from langchain.document_loaders.recursive_url_loader import RecursiveUrlLoader
@@ -36,16 +38,19 @@ openai_key = st.text_input(
     placeholder="sk-...",
 )
 
-# fixed seperators
-SEPERATORS = ["", " ", ".", "?", "!", ",", ";", "\r", "\t", "\n", "\n\n"]
 
-# recursive character text splitter
-text_splitter = RecursiveCharacterTextSplitter(
-    separators=SEPERATORS,
-    keep_separator=False,
-    chunk_size=1000,
-    chunk_overlap=0,
-)
+@st.cache_resource
+def get_text_splitter():
+    # fixed seperators
+    SEPERATORS = ["", " ", ".", "?", "!", ",", ";", "\r", "\t", "\n", "\n\n"]
+
+    # recursive character text splitter
+    return RecursiveCharacterTextSplitter(
+        separators=SEPERATORS,
+        keep_separator=False,
+        chunk_size=1000,
+        chunk_overlap=0,
+    )
 
 
 def get_url_documents(url: str, recursive: bool) -> list[Document]:
@@ -66,7 +71,7 @@ def get_url_documents(url: str, recursive: bool) -> list[Document]:
             web_path=url,
             encoding="utf-8",
             raise_for_status=True,
-        ).load_and_split(text_splitter=text_splitter)
+        ).load_and_split(text_splitter=get_text_splitter())
     else:
         return RecursiveUrlLoader(
             url=url,
@@ -75,7 +80,7 @@ def get_url_documents(url: str, recursive: bool) -> list[Document]:
             timeout=10,
             check_response_status=True,
             continue_on_failure=True,
-        ).load_and_split(text_splitter=text_splitter)
+        ).load_and_split(text_splitter=get_text_splitter())
 
 
 def get_file_documents(file_name: str, file_data: bytes) -> list[Document]:
@@ -90,11 +95,9 @@ def get_file_documents(file_name: str, file_data: bytes) -> list[Document]:
         The file stream
     """
     if file_name.endswith(".txt"):
-        texts = text_splitter.split_text(file_data.decode("utf-8"))
+        texts = get_text_splitter().split_text(file_data.decode("utf-8"))
         return [Document(text, metadata={"source": file_name}) for text in texts]
     if file_name.endswith(".jsonl"):
-        import json
-
         json_docs = json.loads(file_data)
         return list(
             map(
@@ -105,7 +108,7 @@ def get_file_documents(file_name: str, file_data: bytes) -> list[Document]:
     return []
 
 
-@st.experimental_singleton
+@st.cache_resource
 def embeddings_function(openai_api_key: str):
     """The OpenAI Embeddings function"""
 
