@@ -7,14 +7,19 @@
 ## Setup
 
 1. Clone the folder
-    ```sh
-    $ git clone https://github.com/Siddhesh-Agarwal/URL-2-Chroma.git
-    ```
-2. Install the dependencies
+
    ```sh
-   $ poetry install
+   git clone https://github.com/Siddhesh-Agarwal/URL-2-Chroma.git
    ```
-3. Begin the server
+
+2. Install the dependencies
+
    ```sh
-   $ streamlit run ./st_app.py
+   poetry install
+   ```
+
+3. Begin the server
+
+   ```sh
+   streamlit run ./st_app.py
    ```
