@@ -1,5 +1,7 @@
 import json
+import time
 
+import chromadb
 import streamlit as st
 from bs4 import BeautifulSoup
 from langchain.document_loaders.recursive_url_loader import RecursiveUrlLoader
@@ -25,31 +27,66 @@ st.title("URL-2-Chroma")
 
 
 # fixed inputs
-colletion_name = st.text_input(
+collection_name = st.text_input(
     label="Collection Name",
     value="my_collection",
     help="The name of the collection in the chroma db",
     placeholder="my_collection",
 )
-openai_key = st.text_input(
+openai_api_key = st.text_input(
     label="OpenAI API Key",
     type="password",
     help="Get an API key from https://platform.openai.com/account/api-keys",
     placeholder="sk-...",
 )
+rate_limited = st.checkbox("is API Rate Limited?", value=True)
 
 
 @st.cache_resource
 def get_text_splitter():
-    # fixed seperators
-    SEPERATORS = ["", " ", ".", "?", "!", ",", ";", "\r", "\t", "\n", "\n\n"]
+    """Get the recursive character text splitter instance"""
 
-    # recursive character text splitter
     return RecursiveCharacterTextSplitter(
-        separators=SEPERATORS,
+        separators=[" ", ".", "?", "!", ";", "\t", "\n"],
         keep_separator=False,
         chunk_size=1000,
         chunk_overlap=0,
+    )
+
+
+@st.cache_resource
+def embeddings_function() -> OpenAIEmbeddings:
+    """The OpenAI Embeddings function.
+
+    Returns
+    -------
+    OpenAIEmbeddings
+        The OpenAI Embeddings function
+    """
+
+    return OpenAIEmbeddings(
+        model="text-embedding-3-large",
+        dimensions=1024,
+        show_progress_bar=True,
+        api_key=SecretStr(openai_api_key),
+    )
+
+
+@st.cache_resource
+def get_client() -> Chroma:
+    """Create the chroma client and return it.
+
+    Returns
+    -------
+    Chroma
+        The chroma client
+    """
+
+    client = chromadb.PersistentClient()
+    return Chroma(
+        client=client,
+        collection_name=collection_name,
+        embedding_function=embeddings_function(),
     )
 
 
@@ -67,20 +104,22 @@ def get_url_documents(url: str, recursive: bool) -> list[Document]:
         The text splitter to use
     """
     if not recursive:
-        return WebBaseLoader(
+        loader = WebBaseLoader(
             web_path=url,
+            autoset_encoding=False,
             encoding="utf-8",
             raise_for_status=True,
-        ).load_and_split(text_splitter=get_text_splitter())
+        )
     else:
-        return RecursiveUrlLoader(
+        loader = RecursiveUrlLoader(
             url=url,
             max_depth=2,
             extractor=lambda r_text: BeautifulSoup(r_text, "html.parser").text,
             timeout=10,
             check_response_status=True,
             continue_on_failure=True,
-        ).load_and_split(text_splitter=get_text_splitter())
+        )
+    return loader.load_and_split(text_splitter=get_text_splitter())
 
 
 def get_file_documents(file_name: str, file_data: bytes) -> list[Document]:
@@ -108,16 +147,27 @@ def get_file_documents(file_name: str, file_data: bytes) -> list[Document]:
     return []
 
 
-@st.cache_resource
-def embeddings_function(openai_api_key: str):
-    """The OpenAI Embeddings function"""
+def add_to_chroma(client: Chroma, docs: list[Document]):
+    """Add documents to the chroma db"""
 
-    return OpenAIEmbeddings(
-        model="text-embedding-3-large",
-        dimensions=1024,
-        show_progress_bar=True,
-        api_key=SecretStr(openai_api_key),
-    )
+    if rate_limited:
+        batch_size = 10
+        with st.status("Adding documents...") as status:
+            for i in range(0, len(docs), batch_size):
+                try:
+                    client.add_documents(docs[i : i + batch_size])
+                    time.sleep(0.5)
+                    status.markdown(
+                        f"Successfully added documents #{i} - {i + batch_size}"
+                    )
+                except Exception as e:
+                    status.markdown(
+                        f"Failed to add documents #{i} - {i + batch_size} - {e}"
+                    )
+            status.markdown("Finished adding documents")
+            status.update(label="Finished adding documents", state="complete")
+    else:
+        client.add_documents(docs)
 
 
 option = st.tabs(["url", "file"])
@@ -129,23 +179,20 @@ with option[0]:
         placeholder="https://example.com",
     )
     recursive = st.checkbox("Parse recursively", value=False)
+
     if st.button("Generate Chroma Collection", key="url_btn"):
         if not start_url:
             st.error("URL is required", icon="🔗")
-        elif not colletion_name:
+        elif not collection_name:
             st.error("Collection name is required", icon="🛍️")
-        elif not openai_key:
+        elif not openai_api_key:
             st.error("OpenAI API key is required", icon="🔑")
         else:
-            client = Chroma(
-                collection_name=colletion_name,
-                persist_directory="./chroma",
-                embedding_function=embeddings_function(openai_key),
-            )
+            db = get_client()
             with st.spinner("Fetching data..."):
                 docs = get_url_documents(start_url, recursive)
             with st.spinner("Adding to chroma db..."):
-                client.add_documents(docs)
+                add_to_chroma(db, docs)
             st.success("Added to chroma db", icon="✅")
             st.balloons()
 
@@ -156,22 +203,19 @@ with option[1]:
         type=["txt", "jsonl"],
         accept_multiple_files=False,
     )
+
     if st.button("Generate Chroma Collection", key="file_btn"):
         if not file:
             st.error("File is required", icon="📄")
-        elif not colletion_name:
+        elif not collection_name:
             st.error("Collection name is required", icon="🛍️")
-        elif not openai_key:
+        elif not openai_api_key:
             st.error("OpenAI API key is required", icon="🔑")
         else:
-            client = Chroma(
-                collection_name=colletion_name,
-                persist_directory="./chroma",
-                embedding_function=embeddings_function(openai_key),
-            )
+            db = get_client()
             with st.spinner("Fetching data..."):
                 docs = get_file_documents(file.name, file.read())
             with st.spinner("Adding to chroma db..."):
-                client.add_documents(docs)
+                add_to_chroma(db, docs)
             st.success("Added to chroma db", icon="✅")
             st.balloons()

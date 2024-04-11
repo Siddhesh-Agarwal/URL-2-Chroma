@@ -5,7 +5,6 @@
 
 ## Setup
 
-
 1. Clone the folder
 
    ```sh

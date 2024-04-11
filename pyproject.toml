@@ -1,10 +1,11 @@
 [tool.poetry]
 name = "url-2-chroma"
 version = "0.1.0"
-description = "A streamlit app to generate persist chroma DB locally"
+description = "A streamlit app to injest data in chroma DB"
 authors = ["Siddhesh Agarwal <siddhesh.agarwal@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
