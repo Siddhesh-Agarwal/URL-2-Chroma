@@ -100,8 +100,11 @@ def get_url_documents(url: str, recursive: bool) -> list[Document]:
         The url to add
     recursive : bool
         Whether to add the url to the chroma db recursively, by default False
-    text_splitter : TextSplitter
-        The text splitter to use
+
+    Returns
+    -------
+    list[Document]
+        The list of documents extracted from the url
     """
     if not recursive:
         loader = WebBaseLoader(
@@ -124,7 +127,7 @@ def get_url_documents(url: str, recursive: bool) -> list[Document]:
 
 def get_file_documents(file_name: str, file_data: bytes) -> list[Document]:
     """
-    v adds the data to the chroma db
+    get_file_documents adds the data to the chroma db
 
     Parameters
     ----------
@@ -132,6 +135,11 @@ def get_file_documents(file_name: str, file_data: bytes) -> list[Document]:
         The name of the file
     file_data : bytes
         The file stream
+
+    Returns
+    -------
+    list[Document]
+        The list of documents extracted from the file
     """
     if file_name.endswith(".txt"):
         texts = get_text_splitter().split_text(file_data.decode("utf-8"))
@@ -148,7 +156,16 @@ def get_file_documents(file_name: str, file_data: bytes) -> list[Document]:
 
 
 def add_to_chroma(client: Chroma, docs: list[Document]):
-    """Add documents to the chroma db"""
+    """
+    add_to_chroma Add documents to the chroma db
+
+    Parameters
+    ----------
+    client : Chroma
+        The chroma client
+    docs : list[Document]
+        The list of documents to add
+    """
 
     if rate_limited:
         batch_size = 10
@@ -171,7 +188,7 @@ def add_to_chroma(client: Chroma, docs: list[Document]):
 
 
 option = st.tabs(["url", "file"])
-with option[0]:
+with option[0]:  # url
     # inputs
     start_url = st.text_input(
         label="URL",
@@ -180,6 +197,7 @@ with option[0]:
     )
     recursive = st.checkbox("Parse recursively", value=False)
 
+    # output
     if st.button("Generate Chroma Collection", key="url_btn"):
         if not start_url:
             st.error("URL is required", icon="🔗")
@@ -191,12 +209,14 @@ with option[0]:
             db = get_client()
             with st.spinner("Fetching data..."):
                 docs = get_url_documents(start_url, recursive)
+                st.toast("Data fetched", icon="✅")
             with st.spinner("Adding to chroma db..."):
                 add_to_chroma(db, docs)
             st.success("Added to chroma db", icon="✅")
             st.balloons()
 
-with option[1]:
+with option[1]:  # file
+    # inputs
     file = st.file_uploader(
         label="File",
         help="Upload a file to add to the chroma db",
@@ -204,6 +224,7 @@ with option[1]:
         accept_multiple_files=False,
     )
 
+    # output
     if st.button("Generate Chroma Collection", key="file_btn"):
         if not file:
             st.error("File is required", icon="📄")
@@ -215,6 +236,7 @@ with option[1]:
             db = get_client()
             with st.spinner("Fetching data..."):
                 docs = get_file_documents(file.name, file.read())
+                st.toast("Data fetched", icon="✅")
             with st.spinner("Adding to chroma db..."):
                 add_to_chroma(db, docs)
             st.success("Added to chroma db", icon="✅")
