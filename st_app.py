@@ -4,10 +4,10 @@ import time
 import chromadb
 import streamlit as st
 from bs4 import BeautifulSoup
-from langchain.document_loaders.recursive_url_loader import RecursiveUrlLoader
-from langchain.document_loaders.web_base import WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores.chroma import Chroma
+from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
+from langchain_community.document_loaders.web_base import WebBaseLoader
+from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.documents import Document
 from langchain_openai.embeddings import OpenAIEmbeddings
 from pydantic.v1 import SecretStr
